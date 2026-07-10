@@ -1,0 +1,3 @@
+;; Real-world organization location / contact.
+;; :head-role is institutional title only — no personal names.
+{:ooyake-id "gov.usa.dhs", :official-url "https://www.dhs.gov/", :head-role "Secretary of Homeland Security", :head-role-note "institutional office title only; personal names of current office-holders are intentionally NOT stored", :contact-page "https://www.dhs.gov/contact-us", :sourced-from "official public contact page", :hq {:line-en "2707 Martin Luther King Jr Ave SE, Washington, DC 20528", :line-local "2707 Martin Luther King Jr Ave SE, Washington, DC 20528", :postal-code "20528", :country "usa", :kind "headquarters", :provenance "https://www.dhs.gov/contact-us", :last-verified "2026-07-10", :sourcing "official-site-public"}}
