@@ -1,0 +1,101 @@
+(ns dhscompliance.sim
+  "Demo driver -- `clojure -M:dev:run`. Walks a clean engagement through
+  intake -> cisa-scrm track assessment -> filing draft
+  (escalate/approve/commit) -> filing submit (escalate/approve/commit),
+  same for the fasc-exclusion and hsar-compliance tracks, then shows
+  HARD-hold scenarios grounded in the dossier: fabrication defense (no
+  spec-basis), FASC/CISA sole-authority misattribution defense,
+  HSAR/CISA-directive conflation defense, fee mismatch, incomplete
+  Section 889 vendor screening, an unverified CFATS live-status check,
+  and a filing attempt on an assess-only track."
+  (:require [langgraph.graph :as g]
+            [dhscompliance.store :as store]
+            [dhscompliance.operation :as op]))
+
+(def operator {:actor-id "op-1" :actor-role :dhs-compliance-operator :phase 3})
+
+(defn- exec-op [actor tid request context]
+  (g/run* actor {:request request :context context} {:thread-id tid}))
+
+(defn- approve! [actor tid]
+  (g/run* actor {:approval {:status :approved :by "op-1"}} {:thread-id tid :resume? true}))
+
+(defn -main [& _]
+  (let [db (store/seed-db)
+        actor (op/build db)]
+    (println "== engagement/intake eng-1 (clean) ==")
+    (println (exec-op actor "t1" {:op :engagement/intake :subject "eng-1"
+                                  :patch {:id "eng-1" :operator "Meridian Federal Solutions LLC"}} operator))
+
+    (println "== compliance/assess eng-1/cisa-scrm (escalates -- human approves) ==")
+    (println (exec-op actor "t2" {:op :compliance/assess :subject "eng-1" :track :cisa-scrm} operator))
+    (println (approve! actor "t2"))
+
+    (println "== filing/draft eng-1/cisa-scrm (always escalates -- actuation/draft-filing) ==")
+    (let [r (exec-op actor "t3" {:op :filing/draft :subject "eng-1" :track :cisa-scrm} operator)]
+      (println r)
+      (println "-- human operator approves --")
+      (println (approve! actor "t3")))
+
+    (println "== filing/submit eng-1/cisa-scrm (always escalates -- actuation/submit-filing) ==")
+    (let [r (exec-op actor "t4" {:op :filing/submit :subject "eng-1" :track :cisa-scrm} operator)]
+      (println r)
+      (println "-- human operator approves --")
+      (println (approve! actor "t4")))
+
+    (println "== compliance/assess eng-1/fasc-exclusion (clean, assess-only track, escalates) ==")
+    (println (exec-op actor "t4b" {:op :compliance/assess :subject "eng-1" :track :fasc-exclusion} operator))
+    (println (approve! actor "t4b"))
+
+    (println "== filing/draft eng-1/fasc-exclusion (fasc-exclusion has no submission action -> HARD hold) ==")
+    (println (exec-op actor "t4c" {:op :filing/draft :subject "eng-1" :track :fasc-exclusion} operator))
+
+    (println "== compliance/assess eng-1/hsar-compliance (clean, assess-only track, escalates) ==")
+    (println (exec-op actor "t4d" {:op :compliance/assess :subject "eng-1" :track :hsar-compliance} operator))
+    (println (approve! actor "t4d"))
+
+    (println "== compliance/assess eng-2/cisa-scrm (no spec-basis -> HARD hold) ==")
+    (println (exec-op actor "t5" {:op :compliance/assess :subject "eng-2" :track :cisa-scrm :no-spec? true} operator))
+
+    (println "== compliance/assess eng-2/fasc-exclusion (CISA-sole-FASC-authority misattribution -> HARD hold) ==")
+    (println (exec-op actor "t5b" {:op :compliance/assess :subject "eng-2" :track :fasc-exclusion :claim-cisa-sole-fasc-authority? true} operator))
+
+    (println "== compliance/assess eng-2/hsar-compliance (HSAR/CISA-directive conflation -> HARD hold) ==")
+    (println (exec-op actor "t5c" {:op :compliance/assess :subject "eng-2" :track :hsar-compliance :conflate-hsar-cisa-directive? true} operator))
+
+    (println "== compliance/assess eng-3/cisa-scrm (sets up fee-mismatch) ==")
+    (println (exec-op actor "t6" {:op :compliance/assess :subject "eng-3" :track :cisa-scrm} operator))
+    (println (approve! actor "t6"))
+    (println (exec-op actor "t6b" {:op :filing/draft :subject "eng-3" :track :cisa-scrm} operator))
+    (println (approve! actor "t6b"))
+    (println "== filing/submit eng-3/cisa-scrm (fee mismatch -> HARD hold) ==")
+    (println (exec-op actor "t7" {:op :filing/submit :subject "eng-3" :track :cisa-scrm} operator))
+
+    (println "== compliance/assess eng-4/cisa-scrm (sets up vendor-screening-incomplete) ==")
+    (println (exec-op actor "t8" {:op :compliance/assess :subject "eng-4" :track :cisa-scrm} operator))
+    (println (approve! actor "t8"))
+    (println (exec-op actor "t8b" {:op :filing/draft :subject "eng-4" :track :cisa-scrm} operator))
+    (println (approve! actor "t8b"))
+    (println "== filing/submit eng-4/cisa-scrm (vendor-screening-incomplete -> HARD hold) ==")
+    (println (exec-op actor "t9" {:op :filing/submit :subject "eng-4" :track :cisa-scrm} operator))
+
+    (println "== compliance/assess eng-5/cisa-scrm (CFATS-relevant, sets up cfats-status-unverified) ==")
+    (println (exec-op actor "t10" {:op :compliance/assess :subject "eng-5" :track :cisa-scrm} operator))
+    (println (approve! actor "t10"))
+    (println "== filing/draft eng-5/cisa-scrm (cfats-status-unverified -> HARD hold) ==")
+    (println (exec-op actor "t10b" {:op :filing/draft :subject "eng-5" :track :cisa-scrm} operator))
+
+    (println "== filing/draft eng-1/cisa-scrm AGAIN (double-draft -> HARD hold) ==")
+    (println (exec-op actor "t12" {:op :filing/draft :subject "eng-1" :track :cisa-scrm} operator))
+
+    (println "== filing/submit eng-1/cisa-scrm AGAIN (double-submit -> HARD hold) ==")
+    (println (exec-op actor "t13" {:op :filing/submit :subject "eng-1" :track :cisa-scrm} operator))
+
+    (println "== audit ledger ==")
+    (doseq [f (store/ledger db)] (println f))
+
+    (println "== draft records ==")
+    (doseq [r (store/draft-history db)] (println r))
+
+    (println "== submit records ==")
+    (doseq [r (store/submit-history db)] (println r))))
