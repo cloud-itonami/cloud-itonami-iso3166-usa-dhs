@@ -112,7 +112,7 @@
     - FAR-council joint ownership details (out of scope here; GSA's
       sibling actor already covers the FAR/GSAM distinction for its own
       domain -- this actor does not re-litigate FAR ownership)."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (def catalog
   {:cisa-scrm
@@ -204,6 +204,6 @@
   (boolean
    (and vendor-name
         (some #(str/includes?
-                (str/lower-case vendor-name)
-                (str/lower-case %))
+                (str/lower vendor-name)
+                (str/lower %))
               (:covered-vendors (:cisa-scrm catalog))))))

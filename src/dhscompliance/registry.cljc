@@ -26,7 +26,7 @@
   operator would keep, not the act of actually filing itself (that is
   `dhscompliance.operation`'s `:filing/submit`, always human-gated --
   see README Actuation)."
-  (:require [clojure.string :as str]))
+  (:require [kotoba.lang.text :as str]))
 
 (defn- unsigned-certificate
   "Every certificate this actor produces is UNSIGNED -- signature is
@@ -44,7 +44,7 @@
     (str (apply str (repeat (max 0 (- w (count s))) "0")) s)))
 
 (defn- track-code [track]
-  (str/upper-case (name track)))
+  (str/upper (name track)))
 
 (def ^:private money-scale
   "Sub-minor-unit scale used when comparing two money amounts: 1/10000 of
