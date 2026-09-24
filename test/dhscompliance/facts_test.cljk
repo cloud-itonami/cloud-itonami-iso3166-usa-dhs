@@ -1,5 +1,5 @@
 (ns dhscompliance.facts-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [dhscompliance.facts :as facts]))
 
 (deftest cisa-scrm-has-spec-basis

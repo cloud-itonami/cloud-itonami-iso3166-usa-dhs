@@ -1,5 +1,5 @@
 (ns dhscompliance.registry-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [dhscompliance.registry :as registry]))
 
 (deftest engagement-fee-recompute-no-export
